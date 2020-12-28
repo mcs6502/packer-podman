@@ -32,16 +32,26 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder ".", "/vagrant", disabled: true
   config.vm.network "forwarded_port", guest: 22, host: ${PORT}
 
+  ######### EDITABLE SECTION ##############
+
   config.vm.provider "virtualbox" do |vb|
     # Customize the amount of memory on the VM:
     vb.memory = "4096"
   end
 
+  # Uncomment below if you plan to halt and start the VM again
+  #config.ssh.private_key_path = "~/.ssh/${PUBKEY}"
+
+  ######### /EDITABLE SECTION ##############
+
   config.ssh.insert_key = false
+
   config.vm.provision "file", source: "~/.ssh/${PUBKEY}.pub", destination: "~/.ssh/me.pub"
   config.vm.provision "shell", privileged: false, inline: <<-SHELL
     mkdir -p ~/.ssh
-    cat ~/.ssh/me.pub > ~/.ssh/authorized_keys
+    if ! grep -qFe "\$(cat ~/.ssh/me.pub)" ~/.ssh/authorized_keys &>/dev/null; then
+      cat ~/.ssh/me.pub >> ~/.ssh/authorized_keys
+    fi
     chmod 755 ~/.ssh
     chmod 644 ~/.ssh/authorized_keys
   SHELL
@@ -52,11 +62,23 @@ fi
 
 vagrant up
 
-ssh -i ~/.ssh/"${PUBKEY}" -p "${PORT}" vagrant@127.0.0.1 'hostname'
+# After first provisioning, we'll use the generated key for
+# subsequent connections. Vagrant doesn't make this easy in
+# the config file.
+sed -i '' -e 's/#config.ssh.private_key_path/config.ssh.private_key_path/g' ./Vagrantfile || true
+
+ssh-keyscan -p "${PORT}" 127.0.0.1 2>/dev/null | while read -r line; do
+  if ! grep -qFe "$line" ~/.ssh/known_hosts; then
+    printf '%s\n' "$line" >> ~/.ssh/known_hosts
+  fi
+done
 
 run-verbosely podman system connection remove vagrant
-run-verbosely podman system connection add --identity ~/.ssh/"${PUBKEY}" --port "${PORT}" vagrant vagrant@127.0.0.1
+run-verbosely podman system connection add \
+  --identity ~/.ssh/"${PUBKEY}" \
+  --port "${PORT}" \
+  vagrant vagrant@127.0.0.1
 run-verbosely podman system connection default vagrant
 
-timeout --signal HUP 2 podman info || true
+timeout --signal HUP 2 podman info &>/dev/null || true
 run-verbosely podman info
