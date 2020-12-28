@@ -98,6 +98,8 @@ version:
   Version: 2.2.1
 ```
 
+Where `setup-podman-remote.sh` is composed of:
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
@@ -165,7 +167,7 @@ podman info
 
 ## Building from source
 
-Another option if Vagrant Cloud isn't trustworthy is to build it yourself with Packer, then run `vagrant up` using the box you've built.
+Another option if Vagrant Cloud isn't trustworthy is to build it yourself with Packer, then run `vagrant up` using the box you've built. Everything you need is either contained in this repository or available publicly:
 
 ```shell
 ~/workspace $ packer build .
