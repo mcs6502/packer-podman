@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+run-verbosely() {
+  printf '%q ' "$@" | bash -x
+}
+
 # shellcheck disable=SC2223
-: ${BOX:=./output-main/package.box}
-# : ${BOX:=thelonelyghost/podman-remote}
+: ${BOX:=thelonelyghost/podman-remote}
 # shellcheck disable=SC2223
 : ${PUBKEY:=podman}
 # shellcheck disable=SC2223
@@ -51,12 +54,9 @@ vagrant up
 
 ssh -i ~/.ssh/"${PUBKEY}" -p "${PORT}" vagrant@127.0.0.1 'hostname'
 
-set -x
-podman system connection remove vagrant
-podman system connection add --identity ~/.ssh/"${PUBKEY}" --port "${PORT}" vagrant vagrant@127.0.0.1
-podman system connection default vagrant
-set +x
+run-verbosely podman system connection remove vagrant
+run-verbosely podman system connection add --identity ~/.ssh/"${PUBKEY}" --port "${PORT}" vagrant vagrant@127.0.0.1
+run-verbosely podman system connection default vagrant
 
 timeout --signal HUP 2 podman info || true
-set -x
-podman info
+run-verbosely podman info

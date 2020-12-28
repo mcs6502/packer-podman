@@ -12,10 +12,14 @@ Given the lack of equivalent to Docker Desktop for Podman, and that MacOS is a p
 
 ## Usage
 
-It is fair to use `thelonelyghost/podman-remote` from https://app.vagrantup.com/ since every tagged version there correlates exactly to a tag in the git repo. A suggested, idempotent workflow might look like this:
+It is fair to use `thelonelyghost/podman-remote` from https://app.vagrantup.com/ since every tagged version there correlates exactly to a tag in the git repo.
+
+There are 2 main scripts for setting up a VM and connecting your local podman client to it: `setup-from-dist.sh` and `setup-from-source.sh`. Each one is very similar to the other, but the main exception is `setup-from-source.sh` uses the local vagrant box that is output from running `packer build .` instead of the one uploaded to Vagrant Cloud.
+
+A suggested, idempotent workflow might leverage `./setup-from-dist.sh` to look like this:
 
 ```shell
-~/workspace $ ./setup-podman-remote.sh
+~/workspace $ ./setup-from-dist.sh
 [a lot of output]
 
 ~/workspace $ podman info
@@ -98,82 +102,13 @@ version:
   Version: 2.2.1
 ```
 
-Where `setup-podman-remote.sh` is composed of:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-# shellcheck disable=SC2223
-: ${BOX:=thelonelyghost/podman-remote}
-# shellcheck disable=SC2223
-: ${PUBKEY:=podman}
-# shellcheck disable=SC2223
-: ${PORT:=65022}
-
-if ! [ -e ~/.ssh/"${PUBKEY}" ]; then
-  ssh-keygen -t ed25519 -f ~/.ssh/"${PUBKEY}" -N '' -C 'podman-remote (vagrant)'
-fi
-
-if ! grep -qFe "\"~/.ssh/$PUBKEY\"" -e "\"${BOX}\"" -e "host: ${PORT}" Vagrantfile &>/dev/null; then
-cat <<EOH > Vagrantfile
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
-
-# All Vagrant configuration is done below. The "2" in Vagrant.configure
-# configures the configuration version (we support older styles for
-# backwards compatibility). Please don't change it unless you know what
-# you're doing.
-Vagrant.configure("2") do |config|
-  config.vm.box = "${BOX}"
-  config.vm.box_check_update = false
-  config.vm.hostname = "podman-remote"
-  config.vm.synced_folder ".", "/vagrant", disabled: true
-  config.vm.network "forwarded_port", guest: 22, host: ${PORT}
-
-  config.vm.provider "virtualbox" do |vb|
-    # Customize the amount of memory on the VM:
-    vb.memory = "4096"
-  end
-
-  config.ssh.insert_key = false
-  config.vm.provision "file", source: "~/.ssh/${PUBKEY}.pub", destination: "~/.ssh/me.pub"
-  config.vm.provision "shell", privileged: false, inline: <<-SHELL
-    mkdir -p ~/.ssh
-    cat ~/.ssh/me.pub > ~/.ssh/authorized_keys
-    chmod 755 ~/.ssh
-    chmod 644 ~/.ssh/authorized_keys
-  SHELL
-end
-EOH
-  vagrant destroy --force || true
-fi
-
-vagrant up
-
-ssh -i ~/.ssh/"${PUBKEY}" -p "${PORT}" vagrant@127.0.0.1 'hostname'
-
-set -x
-podman system connection remove vagrant
-podman system connection add --identity ~/.ssh/"${PUBKEY}" --port "${PORT}" vagrant vagrant@127.0.0.1
-podman system connection default vagrant
-set +x
-
-# FIXME: The first time connecting always seems to hang
-timeout --signal HUP 2 podman info || true
-set -x
-podman info
-```
-
-## Building from source
-
-Another option if Vagrant Cloud isn't trustworthy is to build it yourself with Packer, then run `vagrant up` using the box you've built. Everything you need is either contained in this repository or available publicly:
+If Vagrant Cloud doesn't seem trustworthy, one can build it on their own with Packer, then start the VM and configure it to work with `podman`. Everything you need for that build is either contained in this repository or available publicly:
 
 ```shell
 ~/workspace $ packer build .
 [a lot of output]
 
-~/workspace $ ./setup.sh
+~/workspace $ ./setup-from-source.sh
 [a lot more output]
 
 ~/workspace $ podman info
