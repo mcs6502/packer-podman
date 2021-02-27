@@ -17,7 +17,7 @@ if ! [ -e ~/.ssh/"${PUBKEY}" ]; then
   ssh-keygen -t ed25519 -f ~/.ssh/"${PUBKEY}" -N '' -C 'podman-remote (vagrant)'
 fi
 
-if ! grep -qFe "\"~/.ssh/$PUBKEY\"" -e "\"${BOX}\"" -e "host: ${PORT}" Vagrantfile &>/dev/null; then
+if ! grep -qFe "\"~/.ssh/$PUBKEY\"" -e "\"${BOX}\"" -e "host: ${PORT}" Vagrantfile &>/dev/null || test $0 -nt Vagrantfile; then
 cat <<EOH > Vagrantfile
 # -*- mode: ruby -*-
 # vi: set ft=ruby :

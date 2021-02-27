@@ -6,7 +6,7 @@ source "vagrant" "main" {
   communicator = "ssh"
   provider     = "virtualbox"
   add_force    = true
-  source_path  = "debian/buster64"
+  source_path  = "bento/debian-10.8"
 
   # box_name = "thelonelyghost/podman-remote"
 }
